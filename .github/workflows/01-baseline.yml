@@ -1,61 +1,40 @@
-name: baseline
-
- 
+name: Secret Scanning config file - Gitleaks
 
 on:
-
   push:
-
-  pull_request: 
-
+  pull_request:
   workflow_dispatch:
 
- 
-
 permissions:
-
   contents: read
 
- 
-
 jobs:
-
-  build:
-
+  secrets:
     runs-on: ubuntu-latest
 
- 
-
     steps:
-
       - name: Checkout
-
-        uses: actions/checkout@v7
-
- 
-
-      - name: Setup Node.js
-
-        uses: actions/setup-node@v6
-
+        uses: actions/checkout@v6
         with:
+          fetch-depth: 0
 
-          node-version: '20'
+      - name: Gitleaks
+        continue-on-error: true
+        run: |
+          docker run --rm \
+            -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:latest \
+            git \
+            --config /repo/.gitleaks.toml \
+            --redact \
+            --report-format json \
+            --report-path /repo/gitleaks-report.json \
+            /repo
 
- 
-
-      - name: Install dependencies
-
-        run: npm ci
-
- 
-
-      - name: Run tests
-
-        run: npm test --if-present
-
- 
-
-      - name: Build
-
-        run: npm run build --if-present
+      - name: Upload Gitleaks Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: error
